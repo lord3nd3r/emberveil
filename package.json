@@ -1,0 +1,35 @@
+{
+  "name": "emberveil",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "namecheck": "node scripts/namecheck.mjs",
+    "mapgen": "tsx tools/mapgen.ts",
+    "audit": "tsx scripts/audit.ts",
+    "bot": "tsx scripts/bot.ts",
+    "check": "tsx scripts/selfcheck.ts",
+    "server": "node --disable-warning=ExperimentalWarning server/index.mjs",
+    "smoke": "node server/smoke.mjs",
+    "shots": "node scripts/shot.mjs",
+    "shots2": "node scripts/shot2.mjs",
+    "browser": "node scripts/browser-test.mjs",
+    "perf": "node scripts/perf.mjs",
+    "gen": "tsx tools/mapgen.ts"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^24.43.1",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "6.4.4"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}
