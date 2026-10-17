@@ -1,5 +1,7 @@
 # Emberveil
 
+**Live demo:** [https://emberveil.3nd3r.net](https://emberveil.3nd3r.net)
+
 ![Emberveil: the starting village](screenshots/03-village.png)
 
 An original top-down action-adventure for the browser (Phaser 3 + Vite + TypeScript). Stages 0-3: a playable game with: the Aurelane region, the town of Emberfen, two side quests, a shop and the first dungeon, the Cistern Under-Hall.
