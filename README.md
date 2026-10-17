@@ -1,5 +1,7 @@
 # Emberveil
 
+![Emberveil: the starting village](screenshots/03-village.png)
+
 An original top-down action-adventure for the browser (Phaser 3 + Vite + TypeScript). Stages 0-1: skeleton and a full vertical slice: the Aurelane region, the town of Emberfen, two side quests, a shop and the first dungeon, the Cistern Under-Hall.
 
 ## Run
