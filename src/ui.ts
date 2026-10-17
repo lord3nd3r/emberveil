@@ -22,7 +22,12 @@ export function label(
     strokeThickness: 1.8,
   });
   t.setShadow(0, 1, "rgba(4,4,24,0.95)", 2.4, true, true);
-  t.setResolution(Math.min(6, Math.max(3, Math.ceil(view.z))));
+  const res = Math.min(6, Math.max(3, Math.ceil(view.z)));
+  t.setResolution(res);
+  // Phaser's Canvas renderer (used when WebGL is unavailable, e.g. LibreWolf / hardened Firefox) divides a Text's
+  // backing canvas by frame.source.resolution, which is only read at construction. Without this the text is drawn
+  // `res` times too big. WebGL ignores the field, so setting it is harmless there.
+  if (scene.sys.game.renderer.type === Phaser.CANVAS) t.frame.source.resolution = res;
   return t;
 }
 

@@ -1,6 +1,7 @@
 /** Heads-up display, laid out per PLAN section 6: magic meter, item box, counters, LIFE hearts top-right, boss bar, toasts, banners. */
 import Phaser from "phaser";
 import { DIM, GOLD, GREEN, RED, WHITE } from "./cast";
+import { hint } from "./gamepad";
 import { TEX, view } from "./gfx";
 import { drawDungeonMap, drawWorldMap, WORLD_TH, WORLD_TW } from "./mapview";
 import { settings } from "./settings";
@@ -128,11 +129,11 @@ export class Hud {
     this.itemIcon.setVisible(!!EQI[eq]);
     if (EQI[eq]) this.itemIcon.setTexture(EQI[eq]);
     this.cost.setText(eq === "gale_disc" ? String(DISC_COST) : "");
-    this.itemKey.setVisible(eq !== "");
+    this.itemKey.setVisible(eq !== "").setText(hint("item", "Q"));
     // counters
     const vals = [String(sv.glints), String(sv.keys), String(sv.inv.tonic ?? 0)];
     this.counters.forEach((c, i) => { c.text.setText(vals[i]); c.icon.setAlpha(i === 1 && sim.area.kind === "world" && sv.keys === 0 ? 0.4 : 1); });
-    this.counters[2].text.setText(`${vals[2]}  H`);
+    this.counters[2].text.setText(`${vals[2]}  ${hint("tonic", "H")}`);
     // level + XP bar
     const lvl = sim.level, xp = sim.xpProgress();
     if (this.lastLvl >= 0 && lvl > this.lastLvl) this.lvlPulse = 1.2;
@@ -165,7 +166,7 @@ export class Hud {
     const low = sim.hp <= 2;
     this.hearts.forEach((h, i) => h.setScale((low && sim.hp - i * 2 > 0 ? 1 + Math.sin(this.clock * 9) * 0.08 : 1) / TEX));
     // minimap
-    const compact = document.body.classList.contains("touch-ui") && window.innerHeight < 520; // phone: the on-screen buttons need that corner
+    const compact = document.body.classList.contains("touch-ui") && !document.body.classList.contains("pad-ui") && view.ch < 520; // phone: the on-screen buttons need that corner
     const showMini = settings.minimap && sim.mode !== "shop" && !compact;
     this.mini.setVisible(showMini); this.miniDot.setVisible(showMini); this.miniFrame?.setVisible(showMini); this.areaLabel.setVisible(showMini);
     if (showMini) this.drawMini();

@@ -6,6 +6,7 @@
 import type Phaser from "phaser";
 import { accounts } from "./accounts";
 import { sfx } from "./audio";
+import { pad, padName } from "./gamepad";
 import { settings, settingsStore } from "./settings";
 
 type Kids = (Node | string)[];
@@ -165,12 +166,12 @@ export function initSettingsUI(game: Phaser.Game): void {
   });
 
   /* ---------------------------------------------------------- settings tab */
-  function slider(id: string, label: string, value: number, onInput: (v: number) => void): HTMLElement {
+  function slider(id: string, label: string, value: number, onInput: (v: number) => void, min = 0, max = 100): HTMLElement {
     const out = h("output", "val", `${Math.round(value * 100)}%`);
     const input = h("input");
     input.type = "range";
-    input.min = "0";
-    input.max = "100";
+    input.min = String(min);
+    input.max = String(max);
     input.step = "5";
     input.id = id;
     input.value = String(Math.round(value * 100));
@@ -258,7 +259,28 @@ export function initSettingsUI(game: Phaser.Game): void {
       h("p", "hint", "All: names always float over people, gates, signs and pickups. Near: only close to you. Off: hidden."),
       toggle("s-mini", "Show minimap", "A small map with markers for people, gates and pickups.", s.minimap, (v) => settingsStore.update({ minimap: v })),
       h("h3", "", "Display"),
+      h("p", "hint", "View zoom: how close the camera sits. Auto picks a size from your window; Closer or Wider nudge it. Whatever you choose, at least 20 x 14 tiles stay visible."),
     );
+    const zoomRow = h("div", "seg");
+    zoomRow.setAttribute("role", "group");
+    zoomRow.setAttribute("aria-label", "View zoom");
+    ([["auto", "Auto"], ["closer", "Closer"], ["wider", "Wider"]] as const).forEach(([v, name]) => {
+      const b = h("button", `sbtn ${settings.viewZoom === v ? "on" : ""}`, name);
+      b.type = "button";
+      b.dataset.zoom = v;
+      b.title = v === "auto" ? "Pick a comfortable size from the window" : v === "closer" ? "Bigger characters and tiles" : "See more of the world";
+      b.setAttribute("aria-pressed", String(settings.viewZoom === v));
+      b.addEventListener("click", () => {
+        settingsStore.update({ viewZoom: v });
+        zoomRow.querySelectorAll("button").forEach((o) => {
+          const on = o === b;
+          o.classList.toggle("on", on);
+          o.setAttribute("aria-pressed", String(on));
+        });
+      });
+      zoomRow.append(b);
+    });
+    root.append(zoomRow);
     const fsBtn = button(document.fullscreenElement ? "Leave fullscreen" : "Enter fullscreen", "", async () => {
       try {
         if (document.fullscreenElement) await document.exitFullscreen();
@@ -269,7 +291,12 @@ export function initSettingsUI(game: Phaser.Game): void {
       fsBtn.textContent = document.fullscreenElement ? "Leave fullscreen" : "Enter fullscreen";
     });
     fsBtn.hidden = !document.documentElement.requestFullscreen;
-    root.append(fsBtn);
+    root.append(
+      fsBtn,
+      h("h3", "", "Controller"),
+      slider("s-deadzone", "Stick dead zone", s.padDeadzone, (v) => settingsStore.update({ padDeadzone: v }), 5, 60),
+      h("p", "hint", "Raise this if the hero drifts without touching the stick; lower it for finer control. Default 25%."),
+    );
   }
 
   /* ---------------------------------------------------------- account tab */
@@ -404,9 +431,32 @@ export function initSettingsUI(game: Phaser.Game): void {
       ["Stuck?", "Esc, then Stuck? returns you to the last safe spot"],
       ["Goal and places", "Esc, then Goal, Places or Map"],
       ["Touch", "Left stick moves; A confirms, B cancels, Menu opens the menu"],
+      ["View zoom", "Settings, Display: Auto, Closer or Wider (at least 20 x 14 tiles always show)"],
     ];
     const dl = h("dl", "kv");
     rows.forEach(([k, v]) => dl.append(h("dt", "", k), h("dd", "", v)));
     root.append(h("h3", "", "How to play"), dl);
+    const gp: [string, string][] = [
+      ["Move", "Left stick or D-pad"],
+      [`${padName("confirm")}`, "Interact, talk, confirm"],
+      [`${padName("cancel")}`, "Cancel, back, close menus"],
+      [`${padName("attack")}`, "Sword (hold to charge a spin)"],
+      [`${padName("item")}`, "Use the equipped item"],
+      [`${padName("cycleBack")} / ${padName("cycle")}`, "Previous / next item"],
+      [`${padName("shield")}`, "Shield (hold)"],
+      [`${padName("dodge")}`, "Roll / dash"],
+      [padName("menu"), "Pause menu"],
+      [padName("map"), "Map"],
+      [padName("tonic"), "Drink an Ember Tonic"],
+      ["Menus", "D-pad or stick to move, A to choose, B to go back"],
+    ];
+    const gdl = h("dl", "kv");
+    gdl.id = "padhelp";
+    gp.forEach(([k, v]) => gdl.append(h("dt", "", k), h("dd", "", v)));
+    root.append(
+      h("h3", "", "Controller"),
+      h("p", "hint", pad.connected ? `Connected: ${pad.id}. Press any button to use it.` : "No controller detected. Plug one in or pair one and press any button; the game shows a message when it is found."),
+      gdl,
+    );
   }
 }

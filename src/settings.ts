@@ -12,13 +12,17 @@ export interface Settings {
   /** Floating name labels over people, gates, signs and pickups. */
   labels: "all" | "near" | "off";
   minimap: boolean;
+  /** How close the camera sits: Auto picks a size from the window, Closer / Wider nudge it (always at least 20 x 14 tiles). */
+  viewZoom: "auto" | "closer" | "wider";
+  /** Gamepad stick dead zone, 0.05 to 0.6. */
+  padDeadzone: number;
 }
 
 function prefersReducedMotion(): boolean {
   try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; }
 }
 
-const DEFAULTS: Settings = { master: 0.7, music: 0.8, sfx: 0.9, muted: false, reduceShake: false, reduceFlash: false, reduceMotion: prefersReducedMotion(), textSize: 1, labels: "all", minimap: true };
+const DEFAULTS: Settings = { master: 0.7, music: 0.8, sfx: 0.9, muted: false, reduceShake: false, reduceFlash: false, reduceMotion: prefersReducedMotion(), textSize: 1, labels: "all", minimap: true, viewZoom: "auto", padDeadzone: 0.25 };
 const KEY = "emberveil-settings-v1";
 
 function clamp01(v: unknown, d: number): number {
@@ -40,6 +44,8 @@ function parse(raw: string | null): Settings | null {
       textSize: o.textSize === 0 || o.textSize === 2 ? o.textSize : 1,
       labels: o.labels === "near" || o.labels === "off" ? o.labels : "all",
       minimap: o.minimap !== false,
+      viewZoom: o.viewZoom === "closer" || o.viewZoom === "wider" ? o.viewZoom : "auto",
+      padDeadzone: typeof o.padDeadzone === "number" && Number.isFinite(o.padDeadzone) ? Math.max(0.05, Math.min(0.6, o.padDeadzone)) : DEFAULTS.padDeadzone,
     };
   } catch {
     return null;

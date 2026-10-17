@@ -221,11 +221,11 @@ export function initTouch(game: Phaser.Game): void {
   const sync = () => {
     const s = game.scene.getScenes(true)[0]?.scene.key ?? "";
     document.body.dataset.scene = s;
-    const portrait = window.innerHeight > window.innerWidth;
+    const portrait = view.ch > view.cw;
     document.body.classList.toggle("portrait", portrait);
-    rotate.hidden = !(portrait && window.innerWidth < 640 && shown);
+    rotate.hidden = !(portrait && view.cw < 640 && shown && !document.body.classList.contains("pad-ui"));
     // battle windows take 68 logical units from the bottom; keep the controls above them
-    root.style.setProperty("--above", `${Math.round(((72 / view.h) * window.innerHeight))}px`);
+    root.style.setProperty("--above", `${Math.round(((72 / view.h) * view.ch))}px`);
   };
   window.setInterval(sync, 250);
   game.events.on("viewchange", sync);

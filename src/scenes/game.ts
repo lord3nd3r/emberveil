@@ -3,6 +3,7 @@ import Phaser from "phaser";
 import { chunkCanvas } from "../art";
 import { AQUA, DIM, EMBER, GOLD, RED, WHITE } from "../cast";
 import { DialogueBox } from "../dialog";
+import { hint, onPadChange } from "../gamepad";
 import { aim, onViewChange, setupCamera, view, TEX, CHUNK_TEX } from "../gfx";
 import { Hud } from "../hud";
 import { GameInput } from "../input";
@@ -92,6 +93,8 @@ export class GameScene extends Phaser.Scene {
     this.menu = new PauseMenu(this, this.sim);
     this.menu.onSettings = () => { this.menu.hide(); (document.querySelector('#hudbtns button[aria-haspopup="dialog"]') as HTMLButtonElement | null)?.click(); };
     this.menu.onClose = () => this.inp.flush();
+    const offPad = onPadChange(() => { this.menu?.layout(); if (this.shopUi) this.buildShop(); });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, offPad);
     const flush = () => { if (this.ready && document.visibilityState !== "visible") this.sim.commit(); };
     document.addEventListener("visibilitychange", flush);
     window.addEventListener("pagehide", flush);
@@ -163,6 +166,7 @@ export class GameScene extends Phaser.Scene {
         else if (ui.map) { this.lastTab = "Map"; this.openMenu("Map"); }
         else if (ui.tonic) sim.useTonic();
         else if (ui.cycle) sim.cycleItem();
+        else if (ui.cycleBack) sim.cycleItem(-1);
       }
       if (!this.menu.open) {
         this.acc += dt;
@@ -227,7 +231,7 @@ export class GameScene extends Phaser.Scene {
       c.add(zone(this, x + 4, ry - 1, w - 8, 16, () => { if (this.shopSel !== i) { this.shopSel = i; this.buildShop(); } }, () => { this.shopSel = i; this.sim.shopBuy(row.id); this.buildShop(); }, true));
     });
     c.add(label(this, x + 8, y + h - 12, `${ITEMS[shopRows[this.shopSel]?.item]?.desc ?? ""}`, DIM, w - 16).setScale(0.7));
-    c.add(label(this, x + w - 8, y + h - 12, "Enter: buy   Esc: leave", DIM).setOrigin(1, 0).setScale(0.7));
+    c.add(label(this, x + w - 8, y + h - 12, `${hint("confirm", "Enter")}: buy   ${hint("cancel", "Esc")}: leave`, DIM).setOrigin(1, 0).setScale(0.7));
     this.shopUi = c;
   }
 

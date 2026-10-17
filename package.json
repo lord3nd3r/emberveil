@@ -1,7 +1,7 @@
 {
   "name": "emberveil",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,6 +17,7 @@
     "shots": "node scripts/shot.mjs",
     "shots2": "node scripts/shot2.mjs",
     "browser": "node scripts/browser-test.mjs",
+    "browser:firefox": "node scripts/firefox-test.mjs",
     "perf": "node scripts/perf.mjs",
     "gen": "tsx tools/mapgen.ts"
   },

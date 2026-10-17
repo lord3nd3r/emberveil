@@ -352,3 +352,25 @@ body.touch-ui .tops { right: calc(max(env(safe-area-inset-right), 8px) + 108px);
 .pbody .sbtn { margin: 6px 6px 0 0; }
 @media (max-height: 520px) { .panel { max-height: 100%; } .phead h2 { font-size: 18px; } }
 @media (prefers-reduced-motion: reduce) { .panel, .overlay { backdrop-filter: none; } }
+
+/* gamepad: hot-plug toast, and the touch controls step aside while a controller is in use */
+.padtoast {
+  position: fixed;
+  left: 50%;
+  bottom: max(env(safe-area-inset-bottom), 18px);
+  transform: translate(-50%, 24px);
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(220, 230, 255, 0.7);
+  background: rgba(10, 16, 70, 0.92);
+  color: #fff;
+  font: 600 14px / 1.2 Inter, system-ui, sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 40;
+  max-width: 90vw;
+  text-align: center;
+}
+.padtoast.show { opacity: 1; transform: translate(-50%, 0); }
+body.pad-ui .touch { display: none !important; }

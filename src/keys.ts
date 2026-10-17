@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-export type VName = "up" | "down" | "left" | "right" | "confirm" | "cancel" | "attack" | "dodge" | "item" | "map" | "menu" | "tonic";
+export type VName = "up" | "down" | "left" | "right" | "confirm" | "cancel" | "attack" | "dodge" | "item" | "map" | "menu" | "tonic" | "cycle" | "cycleBack";
 
 /** Virtual input fed by the on-screen touch controls; Controls merges it with the keyboard. */
 export const vin = {
@@ -9,7 +9,7 @@ export const vin = {
   axis: { x: 0, y: 0 },
   /** buttons that are held rather than tapped */
   hold: { attack: false, shield: false },
-  queue: { up: 0, down: 0, left: 0, right: 0, confirm: 0, cancel: 0, attack: 0, dodge: 0, item: 0, map: 0, menu: 0, tonic: 0 } as Record<VName, number>,
+  queue: { up: 0, down: 0, left: 0, right: 0, confirm: 0, cancel: 0, attack: 0, dodge: 0, item: 0, map: 0, menu: 0, tonic: 0, cycle: 0, cycleBack: 0 } as Record<VName, number>,
   press(n: VName): void {
     this.queue[n] = Math.min(3, this.queue[n] + 1);
   },

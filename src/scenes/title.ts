@@ -3,6 +3,7 @@ import { accounts } from "../accounts";
 import { sfx } from "../audio";
 import { showAuth } from "../authui";
 import { DIM, EMBER, GOLD, WHITE } from "../cast";
+import { onPadChange, pad, padName } from "../gamepad";
 import { onViewChange, setupCamera, view, TEX } from "../gfx";
 import { GameInput } from "../input";
 import { clearSave, readSave } from "../save";
@@ -23,6 +24,8 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor("#0a0c26");
     this.inp = new GameInput(this);
     onViewChange(this, () => this.build());
+    const offPad = onPadChange(() => this.build());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, offPad);
     this.build();
     sfx.setTheme("title");
     this.input.once("pointerdown", () => sfx.unlock());
@@ -77,7 +80,7 @@ export class TitleScene extends Phaser.Scene {
       add(zone(this, mx + 4, y - 2, mw - 8, 14, () => { if (this.sel !== i) { this.sel = i; this.build(); } }, () => { this.sel = i; void this.choose(); }, true));
     });
     const who = acc ? `Signed in as ${acc.name}` : "Playing as guest: saves stay on this device";
-    add(label(this, W / 2, H - 14, `${who}   •   WASD/arrows move, Space sword, Shift shield, L roll, E talk, M map, Esc menu`, DIM).setOrigin(0.5, 0).setScale(0.66));
+    add(label(this, W / 2, H - 14, (pad.active ? `${who}   •   Stick/D-pad move, ${padName("attack")} sword, ${padName("shield")} shield, ${padName("dodge")} roll, ${padName("confirm")} talk, ${padName("map")} map, ${padName("menu")} menu` : `${who}   •   WASD/arrows move, Space sword, Shift shield, L roll, E talk, M map, Esc menu`), DIM).setOrigin(0.5, 0).setScale(0.66));
     announce(`Emberveil title. ${this.items.map((i) => i.text).join(", ")}`);
   }
 

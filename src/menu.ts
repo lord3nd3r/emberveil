@@ -4,6 +4,7 @@ import { DIM, GOLD, GREEN, WHITE } from "./cast";
 import { TEX, view } from "./gfx";
 import type { Ui } from "./input";
 import { chunkLabelCells, drawDungeonMap, drawWorldMap, WORLD_TH, WORLD_TW } from "./mapview";
+import { hint as padHint } from "./gamepad";
 import { settings } from "./settings";
 import type { Sim } from "./sim/core";
 import { DUNGEONS, EQUIPPABLE, ITEMS, dungeonOf, QUEST_DEFS, atkMul, defReduce } from "./sim/data";
@@ -96,7 +97,7 @@ export class PauseMenu {
       this.add(zone(s, tx - 2, y + 2, txt.width + 4, 16, () => undefined, () => this.setTab(t), true));
       tx += txt.width + 14;
     });
-    this.add(label(s, x + w - 8, y + h - 9, "Esc: close   ◀ ▶: switch tab", DIM).setOrigin(1, 1).setScale(0.66));
+    this.add(label(s, x + w - 8, y + h - 9, `${padHint("cancel", "Esc")}: close   ◀ ▶: switch tab`, DIM).setOrigin(1, 1).setScale(0.66));
     const cx = x + 8, cy = y + 24, cw = w - 16, ch = h - 30;
     if (this.tab === "Map") this.buildMap(cx, cy, cw, ch);
     else if (this.tab === "Quests") this.buildQuests(cx, cy, cw, ch);
@@ -168,7 +169,7 @@ export class PauseMenu {
     const sv = sim.save;
     const sel = list[this.sel];
     const desc = sel ? ITEMS[sel]?.desc ?? "" : "";
-    const hint = sel && EQUIPPABLE.includes(sel) ? "  [Enter] equip" : sel === "tonic" ? "  [Enter] drink" : "";
+    const hint = sel && EQUIPPABLE.includes(sel) ? `  [${padHint("confirm", "Enter")}] equip` : sel === "tonic" ? `  [${padHint("confirm", "Enter")}] drink` : "";
     this.add(label(s, cx, cy + ch - 46, `${desc}${hint}`, WHITE, cw).setScale(0.82));
     const xp = sim.xpProgress(), g = this.add(s.add.graphics());
     this.add(label(s, cx, cy + ch - 33, `Level ${sim.level}${xp.need ? `   XP ${xp.cur}/${xp.need}` : "   (max)"}   Sword +${Math.round((atkMul(sim.level) - 1) * 100)}%   Guard -${defReduce(sim.level, 4)}`, GOLD).setScale(0.8));

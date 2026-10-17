@@ -1070,11 +1070,11 @@ export class Sim {
   }
 
   /** Item box: cycle through owned equippable items, Q uses the selected one. */
-  cycleItem(): void {
+  cycleItem(dir: 1 | -1 = 1): void {
     const own = EQUIPPABLE.filter((i) => this.hasItem(i));
     if (!own.length) return;
     const i = own.indexOf(this.save.equipped);
-    this.save.equipped = own[(i + 1) % own.length];
+    this.save.equipped = own[(i + dir + own.length) % own.length];
     this.sfx("select"); this.toast(`Item: ${itemName(this.save.equipped)}`);
   }
 
