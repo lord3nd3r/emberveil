@@ -2,7 +2,7 @@
 
 ![Emberveil: the starting village](screenshots/03-village.png)
 
-An original top-down action-adventure for the browser (Phaser 3 + Vite + TypeScript). Stages 0-1: skeleton and a full vertical slice: the Aurelane region, the town of Emberfen, two side quests, a shop and the first dungeon, the Cistern Under-Hall.
+An original top-down action-adventure for the browser (Phaser 3 + Vite + TypeScript). Stages 0-3: a playable game with: the Aurelane region, the town of Emberfen, two side quests, a shop and the first dungeon, the Cistern Under-Hall.
 
 ## Run
 ```
@@ -49,7 +49,7 @@ When WebGL is unavailable (LibreWolf disables it by default) Phaser falls back t
 - `server/` accounts server (sessions, CSRF, hardening), `save.mjs` (whitelist validation), `smoke.mjs`.
 - `scripts/` namecheck, audit, bot, selfcheck, shot, browser-test.
 
-## Stage 2 (in progress)
+## Stage 2 (done)
 World chunks are baked at `CHUNK_TEX` (2) px per unit from a pool of canvas textures; the playable scene and Phaser are separate bundles. Water shimmers, dark rooms carve soft light, and the hero earns XP/levels (SaveV2; v1 saves migrate). See PROGRESS.md.
 
 ## Stage 3
