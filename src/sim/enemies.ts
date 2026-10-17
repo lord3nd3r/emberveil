@@ -49,6 +49,7 @@ export function stepEnemy(s: Sim, e: Enemy, dt: number): void {
     case "barkwarden": return barkwarden(s, e, dt);
     case "cloudmarshal": return cloudmarshal(s, e, dt);
     case "stormfinch": return stormfinch(s, e, dt);
+    case "vael": return vael(s, e, dt);
   }
 }
 
@@ -522,4 +523,61 @@ function stormfinch(s: Sim, e: Enemy, dt: number): void {
       break;
   }
   if (e.st !== "grounded") touch(s, e, 2); else touch(s, e, 2);
+}
+
+/* ------------------------------------------------------------------ Final boss: Vael Orsek, the Crown-Snuffer (3 phases) */
+function vael(s: Sim, e: Enemy, dt: number): void {
+  const p = s.p;
+  const ang = toward(e, p.x, p.y);
+  const d = dist(s, e);
+  const ph = e.hp > e.def.hp * 0.66 ? 1 : e.hp > e.def.hp * 0.33 ? 2 : 3;
+  if (s.bossActive !== "vael") { s.bossActive = "vael"; s.emit({ t: "music", track: s.trackFor() }); e.c = 0; }
+  if (ph !== e.c && e.c !== 0) {
+    s.emit({ t: "shake", amt: 5 }); s.emit({ t: "flash" }); s.sfx("clang");
+    s.toast(ph === 2 ? "Vael's crown flares: the Hollow answer his call!" : "Vael tears the Veil open around him!");
+    if (ph === 2) for (const dx of [-44, 44]) if (s.enemies.filter((q) => q.alive && !q.def.boss).length < 4) s.enemies.push(s.makeEnemy("wisp", e.x + dx, e.y + 6, e.ck));
+    if (ph === 3) ring(s, e, 14, 70, 0);
+    e.st = "rest"; e.t = 0;
+  }
+  e.c = ph;
+  const sp = ph === 1 ? 17 : ph === 2 ? 22 : 28;
+  switch (e.st) {
+    case "idle": {
+      e.face = ang; go(s, e, ang, d > 30 ? sp : 0, dt);
+      if (e.t > (ph === 3 ? 0.6 : ph === 2 ? 0.8 : 1.0)) {
+        e.t = 0; const r = s.rand();
+        e.st = d < 44 && r < 0.6 ? "slashtell" : ph === 1 ? (r < 0.5 ? "volley" : "slashtell") : ph === 2 ? (r < 0.34 ? "volley" : r < 0.67 ? "blink" : "slashtell") : r < 0.3 ? "volley" : r < 0.55 ? "blink" : r < 0.8 ? "burst" : "slashtell";
+        e.a = ang;
+      }
+      break;
+    }
+    case "slashtell":
+      e.face = ang;
+      if (e.t > (ph === 3 ? 0.45 : 0.65)) {
+        e.st = "rest"; e.t = 0; s.sfx("clang"); s.emit({ t: "shake", amt: 2 });
+        if (d < 44 && Math.abs(Math.atan2(Math.sin(ang - Math.atan2(p.y - e.y, p.x - e.x)), 1)) < 1) s.hurtPlayer(3, e.x, e.y - 4);
+        s.emit({ t: "spark", x: e.x + Math.cos(ang) * 18, y: e.y - 8 + Math.sin(ang) * 18, color: "#ff8a6a", n: 8 });
+      }
+      break;
+    case "volley":
+      e.face = ang;
+      if (e.t > 0.7) { fan(s, e, ph === 3 ? 5 : 3, 0.28, ph === 3 ? 110 : 90, ang); s.sfx("arrow"); e.st = "rest"; e.t = 0; }
+      break;
+    case "blink":
+      if (e.t > 0.4 && e.b === 0) {
+        e.b = 1; const a = s.rand() * Math.PI * 2;
+        const nx = p.x + Math.cos(a) * 34, ny = p.y + Math.sin(a) * 28;
+        if (s.standable(Math.floor(nx / 16), Math.floor((ny - 3) / 16))) { e.x = nx; e.y = ny; }
+        s.emit({ t: "spark", x: e.x, y: e.y - 8, color: "#d89aff", n: 12 });
+      }
+      if (e.t > 0.9) { e.b = 0; ring(s, e, ph === 3 ? 12 : 8, 66, 0.2); s.emit({ t: "shake", amt: 2 }); e.st = "rest"; e.t = 0; }
+      break;
+    case "burst":
+      if (e.t > 0.6) { ring(s, e, 10, 60, 0); ring(s, e, 10, 90, 0.31); s.sfx("clang"); e.st = "rest"; e.t = 0; }
+      break;
+    case "rest":
+      if (e.t > (ph === 3 ? 0.45 : 0.7)) { e.st = "idle"; e.t = 0; }
+      break;
+  }
+  if (e.st !== "rest") touch(s, e); else touch(s, e, 2);
 }

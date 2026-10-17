@@ -45,7 +45,10 @@
   "spire_d2",
   "spire_d3",
   "spire_d4",
-  "spire_e1"
+  "spire_e1",
+  "keep_a1",
+  "keep_a2",
+  "keep_a3"
  ],
  "chunks": [
   "0,0",
@@ -148,6 +151,9 @@
   "ch_g7",
   "ch_far",
   "ch_feather",
+  "ch_medal",
+  "ch_pearl",
+  "ch_kitlamp",
   "ch_blade",
   "ch_hermit",
   "ch_cache",
@@ -169,11 +175,13 @@
   "ch_gauntlet",
   "ch_skeyA",
   "ch_smap",
+  "ch_rope",
   "ch_scompass",
   "ch_skeyB",
   "ch_skeyC",
   "ch_skey",
-  "ch_bow"
+  "ch_bow",
+  "ch_keep_g"
  ],
  "doors": [
   "d_r1r2",
@@ -205,14 +213,19 @@
   "L_sd1d2",
   "d_sd1d3",
   "B_sd1d4",
+  "d_ka1a2",
+  "d_ka2a3",
   "sl_tomb",
-  "rb_quarry"
+  "rb_quarry",
+  "th_d1a",
+  "th_d1b"
  ],
  "fightRooms": [
   "cistern_r3",
   "cistern_r5",
   "moss_b4",
-  "spire_d2"
+  "spire_d2",
+  "keep_a3"
  ],
  "items": [
   "keeper_blade",
@@ -234,7 +247,11 @@
   "spire_map",
   "spire_compass",
   "spire_key",
-  "ember_bow"
+  "ember_bow",
+  "old_medal",
+  "glass_pearl",
+  "bell_rope",
+  "kit_lamp"
  ],
  "flags": [
   "intro",
@@ -258,7 +275,9 @@
   "wardenDead",
   "mossOpened",
   "cloudmarshalDead",
-  "stormfinchDead"
+  "stormfinchDead",
+  "vaelDead",
+  "keepOpened"
  ],
  "quests": [
   "cistern",
@@ -269,7 +288,12 @@
   "folio",
   "parcel",
   "feather",
-  "waterskin"
+  "waterskin",
+  "crown",
+  "medal",
+  "pearl",
+  "bellrope",
+  "kitlamp"
  ],
  "consumables": [
   "tonic"
@@ -290,5 +314,10 @@
   "gale_disc",
   "spiral_boots",
   "ember_bow"
- ]
+ ],
+ "allies": [
+  "kit",
+  "dorn"
+ ],
+ "allyXpCap": 180
 }

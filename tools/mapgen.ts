@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { CH, CW, FOG_HEX, FOG_W, REGION_COLS, REGION_ROWS } from "../src/tiles";
-import { CONSUMABLES, EQUIPPABLE, FLAGS, LEVEL_XP, QUESTS, UNIQUE_ITEMS } from "../src/sim/data";
+import { ALLIES, ALLY_XP_CAP, CONSUMABLES, EQUIPPABLE, FLAGS, LEVEL_XP, QUESTS, UNIQUE_ITEMS } from "../src/sim/data";
 
 const OUT = path.resolve("public/world");
 fs.mkdirSync(path.join(OUT, "aurelane"), { recursive: true });
@@ -490,7 +490,7 @@ g.put(112, 36, "L");
 // ---------------------------------------------------------------- expansion objects
 const hint = (id: string, x: number, y: number, text: string[]) => add({ t: "sign", id, x, y, label: "Hint stone", text });
 // sealed doors
-add({ t: "warp", id: "w_keep", x: 143, y: 96, w: 2, h: 1, to: "", tx: 0, ty: 0, label: "Crownwatch Keep", msg: "The Keep's doors are barred with three wardstone seals. Light the wardstones of Aurelane, and the Keep will open." });
+add({ t: "warp", id: "w_keep", x: 143, y: 96, w: 2, h: 1, to: "keep_a1", tx: 12, ty: 13.0, dir: "up", label: "Crownwatch Keep", needFlag: "cisternCleared,wardenDead,stormfinchDead", msg: "The Keep's doors are barred with three wardstone seals. Light the wardstones of Aurelane, and the Keep will open." });
 add({ t: "warp", id: "w_spire", x: 205, y: 9, w: 2, h: 1, to: "spire_a1", tx: 12, ty: 13.0, dir: "up", label: "Skyreach Spire", needFlag: "wardenDead", msg: "A cold seal hums across the Spire door. Light the second lamp, and the Spire will open." });
 // houses and caves
 warp({ id: "w_outpost", x: 151, y: 36, w: 1, h: 1, to: "kestrel_outpost", tx: 8.5, ty: 9.6, dir: "up", label: "Kestrel Outpost" });
@@ -537,6 +537,10 @@ for (const [cx, cy] of [[20, 105], [236, 86], [118, 178]] as number[][]) for (le
 add({ t: "bush", x: 141, y: 10 }); add({ t: "bush", x: 224, y: 10 });
 // NPCs
 npc("garrick", 153, 40); npc("ferris", 172, 98); npc("mossa", 36, 150);
+npc("dorn", 137, 91); npc("willa", 172, 178); npc("tove", 200, 40);
+add({ t: "chest", id: "ch_medal", x: 176, y: 108, item: "old_medal", label: "Chest" });
+add({ t: "chest", id: "ch_pearl", x: 46, y: 156, item: "glass_pearl", label: "Chest" });
+add({ t: "chest", id: "ch_kitlamp", x: 101, y: 45, item: "kit_lamp", label: "Chest" });
 // enemies by biome
 const usedTiles = new Set(wo.map((o) => `${o.x},${o.y}`));
 function spawnEnemies(x0: number, y0: number, x1: number, y1: number, kinds: string[], n: number): void {
@@ -598,7 +602,6 @@ for (let cy = 0; cy < REGION_ROWS; cy++)
     fs.writeFileSync(path.join(OUT, "aurelane", file), JSON.stringify({ cx, cy, name: NAMES[`${cx},${cy}`], music: MUSIC[`${cx},${cy}`] ?? "meadow", rows, objects }) + "\n");
   }
 fs.writeFileSync(path.join(OUT, "aurelane", "world.json"), JSON.stringify(world) + "\n");
-fs.mkdirSync("data", { recursive: true });
 fs.writeFileSync("data/aurelane-preview.txt", g.lines().join("\n") + "\n");
 
 /* ===================================================================== ROOMS */
@@ -1020,6 +1023,7 @@ const SM = "spire"; // track id
   r.rect(4, 5, 8, 5, "h"); r.rect(15, 5, 19, 5, "h"); r.rect(4, 10, 8, 10, "h"); r.rect(15, 10, 19, 10, "h");
   door(r, "spire_b2", "E", "spire_b1", "open", "d_sb1b2", "Door to the Landing");
   en(r, "thornling", 6, 7); en(r, "thornling", 17, 7); en(r, "beetle", 12, 11);
+  r.obj({ t: "chest", id: "ch_rope", x: 19.5, y: 8, item: "bell_rope", label: "Chest" });
   r.obj({ t: "chest", id: "ch_scompass", x: 3.5, y: 11.5, item: "spire_compass", label: "Chest" });
   finishRoom("spire_b2", "Reading Gallery", SM, "dungeon", r, SF([1, 1], 1));
   r = sroom(); braziers(r);
@@ -1053,7 +1057,7 @@ const SM = "spire"; // track id
   r = sroom(); braziers(r);
   r.rect(12, 2, 12, 6, "#"); pits(r, 13, 7, 21, 8); r.rect(13, 2, 21, 6, "_");
   door(r, "spire_c3", "W", "spire_c1", "open", "d_sc1c3", "Door to the Landing");
-  r.obj({ t: "crystal", id: "cr_sc3", opens: "S_sc1c4", x: 17.5, y: 3.5, label: "Crystal switch (needs a ranged strike)" });
+  r.obj({ t: "crystal", id: "cr_sc3", opens: "S_sc1c4", x: 17.5, y: 5.5, label: "Crystal switch (needs a ranged strike)" });
   en(r, "wisp", 7, 6); en(r, "wisp", 8, 11); en(r, "archer", 17, 12);
   finishRoom("spire_c3", "Chime Room", SM, "dungeon", r, SF([3, 1], 2));
   r = sroom(); braziers(r);
@@ -1103,16 +1107,45 @@ const SM = "spire"; // track id
   finishRoom("spire_e1", "The Roost", "spire", "dungeon", r, SF([2, 1], 4));
 }
 
+
+// ---- Crownwatch Keep: three rooms, soldiers and archers, a sealed throne hall and Vael Orsek
+{
+  const KM = "keep";
+  const kroom = (): Grid => { const r = new Grid(24, 16, "#"); r.rect(2, 2, 21, 13, "_"); return r; };
+  let r = kroom(); braziers(r);
+  r.put(11, 14, "_"); r.put(12, 14, "_"); gap(r, "S"); r.rect(11, 14, 12, 15, "S");
+  r.obj({ t: "warp", id: "w_keep_exit", x: 11, y: 14, w: 2, h: 2, to: "world", tx: 144, ty: 97.6, dir: "down", label: "Out to Crownwatch" });
+  for (const [x, y] of [[6, 5], [17, 5], [6, 10], [17, 10]]) pillar(r, x, y);
+  door(r, "keep_a1", "N", "keep_a2", "open", "d_ka1a2", "Door to the Hall of Seals");
+  en(r, "soldier", 7, 7); en(r, "soldier", 16, 7); en(r, "archer", 12, 5); en(r, "soldier", 12, 9);
+  r.obj({ t: "sign", id: "sg_k1", x: 14, y: 12, label: "Cold plaque", text: ["CROWNWATCH KEEP", "The three seals have burned away. Beyond the Hall of Seals, the Lantern-Crown's hall: where Vael Orsek snuffed the light."] });
+  finishRoom("keep_a1", "Keep Gate", KM, "dungeon", r, { grid: [1, 2], floor: 0 } as Partial<RoomOut>);
+  r = kroom(); braziers(r);
+  pits(r, 6, 5, 9, 10); pits(r, 14, 5, 17, 10); r.rect(6, 7, 9, 8, "_"); r.rect(14, 7, 17, 8, "_");
+  door(r, "keep_a2", "S", "keep_a1", "open", "d_ka1a2", "Door to the Gate");
+  door(r, "keep_a2", "N", "keep_a3", "open", "d_ka2a3", "Door to the Crown Hall");
+  en(r, "wisp", 11, 7); en(r, "wisp", 12, 9); en(r, "archer", 4, 4); en(r, "archer", 19, 4); en(r, "soldier", 4, 11); en(r, "soldier", 19, 11);
+  r.obj({ t: "chest", id: "ch_keep_g", x: 3.5, y: 8, item: "glints_100", label: "Chest" });
+  r.obj({ t: "sign", id: "sg_k2", x: 12, y: 12, label: "Cold plaque", text: ["Rest here a moment, lamp-keeper. What waits beyond is no hollow soldier."] });
+  finishRoom("keep_a2", "Hall of Seals", KM, "dungeon", r, { grid: [1, 1], floor: 0 } as Partial<RoomOut>);
+  r = kroom(); braziers(r);
+  for (const [x, y] of [[5, 4], [18, 4], [5, 11], [18, 11]]) pillar(r, x, y);
+  r.rect(9, 5, 14, 5, "I");
+  door(r, "keep_a3", "S", "keep_a2", "open", "d_ka2a3", "Door to the Hall of Seals");
+  en(r, "vael", 12, 7);
+  finishRoom("keep_a3", "Lantern-Crown Hall", KM, "dungeon", r, { grid: [1, 0], floor: 0, fight: true } as Partial<RoomOut>);
+}
+
 for (const rm of rooms) fs.writeFileSync(path.join(OUT, "rooms", `${rm.id}.json`), JSON.stringify(rm) + "\n");
 fs.writeFileSync(path.join(OUT, "rooms", "index.json"), JSON.stringify(rooms.map((r) => r.id)) + "\n");
 // whitelist for the account server's save validation (server/content.json)
 {
   const chestIds = [...wo.filter((o) => o.t === "chest"), ...rooms.flatMap((r) => r.objects.filter((o) => o.t === "chest"))].map((o) => o.id as string);
-  const doorIds = [...new Set([...rooms.flatMap((r) => r.objects.filter((o) => o.t === "door").map((o) => o.id as string)), ...wo.filter((o) => o.t === "slab" || o.t === "rubble").map((o) => o.id as string)])];
+  const doorIds = [...new Set([...rooms.flatMap((r) => r.objects.filter((o) => o.t === "door").map((o) => o.id as string)), ...wo.filter((o) => o.t === "slab" || o.t === "rubble" || o.t === "thicket").map((o) => o.id as string), ...rooms.flatMap((r) => r.objects.filter((o) => o.t === "thicket").map((o) => o.id as string))])];
   const content = {
     rooms: rooms.map((r) => r.id), chunks: Array.from({ length: REGION_COLS * REGION_ROWS }, (_, i) => `${i % REGION_COLS},${Math.floor(i / REGION_COLS)}`), fogHex: FOG_HEX, fogW: FOG_W,
     chests: chestIds, doors: doorIds, fightRooms: rooms.filter((r) => r.fight).map((r) => r.id),
-    items: UNIQUE_ITEMS, flags: FLAGS, quests: QUESTS, consumables: CONSUMABLES, levelXp: LEVEL_XP, equippable: EQUIPPABLE,
+    items: UNIQUE_ITEMS, flags: FLAGS, quests: QUESTS, consumables: CONSUMABLES, levelXp: LEVEL_XP, equippable: EQUIPPABLE, allies: Object.keys(ALLIES), allyXpCap: ALLY_XP_CAP,
   };
   fs.writeFileSync("server/content.json", JSON.stringify(content, null, 1) + "\n");
 }

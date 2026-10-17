@@ -13,6 +13,15 @@ export function script(s: Sim, id: string): Script {
   const f = (n: string) => s.hasFlag(n);
   switch (id) {
     case "isolde": {
+      if (s.quest("thirdlamp") >= 3 && s.quest("crown") < 3) {
+        return {
+          who,
+          lines: s.quest("crown") === 0
+            ? ["Three lamps, Ren. I can see them from here: the Cistern's, the Grove's and the Spire's.", "The seals on Crownwatch Keep are burning away. The great doors south of the castle will open for you now.", "Vael Orsek waits in the Lantern-Crown's hall. Bring your allies, keep your tonics full, and don't let him drag the fight out.", "Whatever happens, you have been a good lamp-keeper."]
+            : ["The Keep is open, Ren. The doors are south of the castle, across the moat's south bridge. Light the Crown."],
+          after: () => { s.setFlag("keepOpened"); if (s.quest("crown") === 0) s.setQuest("crown", 1); },
+        };
+      }
       if (f("wardenDead") && s.quest("thirdlamp") < 3) {
         return {
           who,
@@ -67,8 +76,32 @@ export function script(s: Sim, id: string): Script {
       return { who, lines: ["Tamsin's shop has tonics and hot soup if you're hurt. Bushes hide glints, too, so hack at everything green.", "My nephew swears the hermit's cave leads clean through the cliffs to the plateau. I wouldn't know. I hate the dark."], after: () => s.setFlag("metMarla") };
     case "tam":
       return { who, lines: ["I saw Granny Maple's hen run into the corner pen at the far end of the orchard!", "Don't tell her I said so. She'll make me carry the eggs."], after: () => s.setFlag("metTam") };
-    case "kit":
-      return { who, lines: ["The Beacon was so bright when I was little. You could see it from the pier.", "Now it's just a black tooth on the hill."], after: () => s.setFlag("metKit") };
+    case "kit": {
+      const q = s.quest("kitlamp");
+      if (q === 0) return { who, lines: ["The Beacon was so bright when I was little. You could see it from the pier.", "Oh! I dropped my little tin lamp near Oswin's pier. It's all I have left of those days. Could you find it?"], after: () => { s.setFlag("metKit"); s.setQuest("kitlamp", 1); } };
+      if (q === 1 && !s.hasItem("kit_lamp")) return { who, lines: ["Oswin's pier is east of the village, on the lake shore. It was in the reeds by the pier."] };
+      return { who, lines: ["My lamp! You found it. I'm a good shot with a light bolt, you know.", "Let me come with you, Ren. I'll light the way, and I'll learn as we go."], after: () => { s.take("kit_lamp"); s.setQuest("kitlamp", 3); s.recruitAlly("kit"); } };
+    }
+    case "dorn": {
+      const q = s.quest("medal");
+      if (q === 0) return { who, lines: ["Crownwatch, lad. Thirty years on its walls, and I lost my service medal on the Eastmarch fields while chasing a runaway cart.", "Find it, and I'll stand beside you when you need an old soldier."], after: () => s.setQuest("medal", 1) };
+      if (q === 1 && !s.hasItem("old_medal")) return { who, lines: ["The Eastmarch fields are east of the castle, along the road toward Gullwatch. It will be in a chest the farmers put it in."] };
+      return { who, lines: ["My medal! Thirty years of dust and it still shines.", "Right. An old soldier keeps his word. Lead on, lamp-keeper."], after: () => { s.take("old_medal"); s.addGlints(40); s.setQuest("medal", 3); s.recruitAlly("dorn"); } };
+    }
+    case "willa": {
+      const q = s.quest("pearl");
+      if (q === 0) return { who, lines: ["Sea-glass pearls only form in the Glassmere shallows, down in the dunes to the south-west.", "Bring me one and I'll pay what a beachcomber can: a good handful of glints."], after: () => s.setQuest("pearl", 1) };
+      if (q === 1 && !s.hasItem("glass_pearl")) return { who, lines: ["Glassmere is in the south-west dunes, where the sand turns to glass."] };
+      if (q < 3) return { who, lines: ["Look at it shine! A hundred glints, as promised."], after: () => { s.take("glass_pearl"); s.addGlints(100); s.setQuest("pearl", 3); } };
+      return { who, lines: ["The tide is lovely this time of year."] };
+    }
+    case "tove": {
+      const q = s.quest("bellrope");
+      if (q === 0) return { who, lines: ["The Highmeadow chime has been silent since the Veil tore. The rope rotted through.", "They say the Skyreach Spire's Reading Gallery still holds belfry silk. I won't climb it. Would you?"], after: () => s.setQuest("bellrope", 1) };
+      if (q === 1 && !s.hasItem("bell_rope")) return { who, lines: ["The Spire door opens once the Bark Warden is down. Look in the Reading Gallery, on the second floor."] };
+      if (q < 3) return { who, lines: ["Belfry silk! The chime will ring again. Here, eighty glints for your trouble."], after: () => { s.take("bell_rope"); s.addGlints(80); s.setQuest("bellrope", 3); } };
+      return { who, lines: ["Listen: the chime. It carries all the way to Kestrel."] };
+    }
     case "tamsin":
       return { who, lines: ["Welcome to the Lampwright's! Trimmed wicks, tonics, hot soup. Have a look at the counter."], after: () => { s.setFlag("metTamsin"); s.openShop(); } };
     case "granny": {

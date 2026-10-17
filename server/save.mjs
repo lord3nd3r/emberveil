@@ -61,8 +61,14 @@ export function cleanSave(raw) {
   const quests = {};
   if (!isObj(raw.quests)) return null;
   for (const id of C.quests) { const n = raw.quests[id]; if (n === undefined) continue; if (!int(n, 0, 4)) return null; if (n > 0) quests[id] = n; }
-  if (flags.includes("heartContainer") ? raw.hearts > 3 + 1 + 1 + 0 : raw.hearts > 3 + 1) return null;
-  return { v: 2, xp: raw.xp, area: raw.area, x: Math.round(raw.x * 100) / 100, y: Math.round(raw.y * 100) / 100, facing: raw.facing, hp: raw.hp, hearts: raw.hearts, pieces: raw.pieces, magic: Math.round(raw.magic), glints: raw.glints, items, equipped: raw.equipped, inv, keys: raw.keys, flags, quests, chests, doors, cleared, visited, fog, playTime: Math.round(raw.playTime) };
+  const containers = ["bossDead", "wardenDead", "stormfinchDead"].filter((f) => flags.includes(f)).length;
+  if (raw.hearts > 3 + containers + 1) return null;
+  const allies = {};
+  if (raw.allies !== undefined) {
+    if (!isObj(raw.allies)) return null;
+    for (const [id, n] of Object.entries(raw.allies)) { if (!(C.allies ?? []).includes(id) || !int(n, 0, C.allyXpCap ?? 0)) return null; allies[id] = n; }
+  }
+  return { v: 2, xp: raw.xp, area: raw.area, x: Math.round(raw.x * 100) / 100, y: Math.round(raw.y * 100) / 100, facing: raw.facing, hp: raw.hp, hearts: raw.hearts, pieces: raw.pieces, magic: Math.round(raw.magic), glints: raw.glints, items, equipped: raw.equipped, inv, keys: raw.keys, flags, quests, allies, chests, doors, cleared, visited, fog, playTime: Math.round(raw.playTime) };
 }
 
 /** Progress may only move forward. */
@@ -72,6 +78,7 @@ export function progressOk(prev, next) {
   if (!sub(prev.flags, next.flags) || !sub(prev.chests, next.chests) || !sub(prev.doors, next.doors) || !sub(prev.cleared, next.cleared)) return false;
   if (!sub(prev.items.filter((i) => i !== "brass_lantern"), next.items)) return false;
   for (const id of C.quests) if ((next.quests[id] ?? 0) < (prev.quests?.[id] ?? 0)) return false;
+  for (const [id, n] of Object.entries(prev.allies ?? {})) if ((next.allies?.[id] ?? -1) < n) return false; // companions never leave and never un-learn
   if ((next.xp ?? 0) < (prev.xp ?? 0)) return false; // experience never goes backwards (v1 saves count as 0)
   if (next.hearts < prev.hearts || next.hearts > prev.hearts + 2) return false;
   if (next.playTime + 5 < prev.playTime) return false;

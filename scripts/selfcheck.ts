@@ -241,6 +241,86 @@ if (bot.save) {
   sf.alive && (sf.st = "grounded", sim.hitEnemy(sf, 999, 0, {}));
   sim.step(1 / 60, idle);
   step("spire: defeating Stormfinch Mol sets the flag and drops a heart container", sim.hasFlag("stormfinchDead") && sim.heartContainerAt !== null);
+  // locked doors on the east and west walls must be openable by walking into them (the hero's body is wider than the contact margin)
+  {
+    await sim.enterArea("moss_b1", 5, 7.9, "left"); await sim.settle(); sim.mode = "play"; sim.enemies = [];
+    sim.save.keys = 1;
+    for (let i = 0; i < 200 && !sim.save.doors.includes("L_b1b2"); i++) sim.step(1 / 60, { ...idle, mx: -1 });
+    step("doors: a small key opens a locked door on the west wall by walking into it", sim.save.doors.includes("L_b1b2") && sim.save.keys === 0, `keys=${sim.save.keys} x=${(sim.p.x / 16).toFixed(1)}`);
+  }
+  // Stage 3: the Keep is sealed until all three lamps burn
+  {
+    sim.save.flags = sim.save.flags.filter((f) => !["cisternCleared", "wardenDead", "stormfinchDead"].includes(f));
+    await sim.enterArea("world", 144, 97.5, "up"); await sim.settle(); sim.mode = "play"; sim.enemies = [];
+    for (let i = 0; i < 80; i++) sim.step(1 / 60, { ...idle, my: -1 });
+    await sim.settle();
+    step("keep: the doors stay barred without the three wardstone flags", sim.area.id === "world");
+    for (const f of ["cisternCleared", "wardenDead", "stormfinchDead"]) sim.setFlag(f);
+    sim.mode = "play"; sim.dialog = null; sim.lockMsgT = 0; sim.p.x = 144 * 16; sim.p.y = 97.5 * 16;
+    for (let i = 0; i < 90 && sim.area.id === "world"; i++) { sim.step(1 / 60, { ...idle, my: -1 }); await sim.settle(); }
+    for (let i = 0; i < 200 && sim.mode === "transition"; i++) { sim.step(1 / 60, idle); await sim.settle(); }
+    step("keep: all three wardstones open the doors into Crownwatch Keep", sim.area.id === "keep_a1", sim.area.id);
+  }
+  // Stage 3: allies level up and use the level-up effect
+  {
+    await sim.enterArea("moss_a1", 12, 8, "down"); await sim.settle(); sim.mode = "play"; sim.enemies = [];
+    sim.recruitAlly("kit");
+    step("ally: recruiting adds the companion to the save", sim.allyIds().includes("kit") && (sim.save.allies?.kit ?? -1) === 0);
+    sim.events.length = 0;
+    sim.addAllyXp("kit", 25);
+    const lv = sim.events.filter((e) => e.t === "levelup" && e.who === "kit").length;
+    step("ally: levelling up emits the level-up effect and the chime", lv === 1 && sim.allyLevelOf("kit") === 2 && sim.events.some((e) => e.t === "sfx" && e.name === "levelup"));
+    sim.events.length = 0;
+    sim.enemies = [];
+    for (let i = 0; i < 2; i++) sim.enemies.push(sim.makeEnemy("beetle", 12 * 16 + i * 8, 10 * 16, sim.area.id));
+    const xp0 = sim.save.allies!.kit;
+    for (let i = 0; i < 90 * 60 && sim.enemies.some((e) => e.alive); i++) { sim.hp = sim.maxHp; sim.p.x = 12 * 16; sim.p.y = 8 * 16; sim.step(1 / 60, idle); }
+    step("ally: the companion fights and earns its own XP", sim.save.allies!.kit > xp0 && sim.enemies.every((e) => !e.alive), `xp ${xp0} -> ${sim.save.allies!.kit}`);
+    sim.addAllyXp("kit", 9999);
+    step("ally: ally XP is capped", sim.save.allies!.kit <= 190 && sim.allyLevelOf("kit") === 5);
+  }
+  // Stage 3: the final boss, ending and credits
+  {
+    await sim.enterArea("keep_a3", 12, 12, "up"); await sim.settle(); sim.mode = "play";
+    const vl = sim.enemies.find((e) => e.kind === "vael")!;
+    const vph = new Set<number>(); let vproj = 0;
+    for (let i = 0; i < 150 * 60 && vl.alive; i++) {
+      sim.hp = sim.maxHp; sim.p.x = 12 * 16; sim.p.y = 12 * 16;
+      if (i % 420 === 419) sim.hitEnemy(vl, 18, 0, {});
+      sim.step(1 / 60, idle); vph.add(vl.c); vproj += sim.projs.filter((q) => !q.mine && q.ttl > 2.4).length;
+    }
+    step("final boss: Vael goes through three phases and fires projectiles", vph.has(1) && vph.has(2) && vph.has(3) && vproj > 5, `phases=${[...vph].join(",")} proj=${vproj}`);
+    sim.hitEnemy(vl, 999, 0, {}); sim.step(1 / 60, idle);
+    step("final boss: defeating Vael sets the flag and completes the crown quest", sim.hasFlag("vaelDead") && sim.quest("crown") === 3);
+    sim.events.length = 0;
+    for (let i = 0; i < 300 && sim.mode !== "ending"; i++) sim.step(1 / 60, idle);
+    step("ending: the credits begin after the boss falls and play the credits track", sim.mode === "ending" && sim.events.some((e) => e.t === "ending") && sim.events.some((e) => e.t === "music" && e.track === "credits"));
+    sim.endEnding();
+    step("ending: dismissing the credits returns to free play", sim.mode === "play");
+  }
+  // Stage 3: boss difficulty bounds. A hero who stands still near the boss is the worst case; bounds are stationary damage per second (halves).
+  {
+    const bossBounds: [string, string, number, number, number, number, number][] = [
+      // room, kind, hero x, hero y (tiles), hearts the hero plausibly has, min dps, max dps
+      ["moss_c3", "barkwarden", 5, 8, 5, 0.3, 3.0],
+      ["spire_e1", "stormfinch", 4, 8, 6, 0.05, 3.0],
+      ["keep_a3", "vael", 12, 12, 7, 0.4, 3.4],
+    ];
+    for (const [room, kind, hx, hy, hearts, lo, hi] of bossBounds) {
+      sim.save.flags = sim.save.flags.filter((f) => !["wardenDead", "stormfinchDead", "vaelDead"].includes(f)); sim.endingT = 0; sim.bossActive = "";
+      await sim.enterArea(room, hx, hy, "right"); await sim.settle(); sim.mode = "play";
+      sim.save.hearts = hearts; sim.hp = sim.maxHp;
+      let lost = 0;
+      const T = 40 * 60;
+      for (let i = 0; i < T; i++) {
+        const h0 = sim.hp; sim.p.x = hx * 16; sim.p.y = hy * 16;
+        sim.step(1 / 60, idle);
+        lost += Math.max(0, h0 - sim.hp); sim.hp = sim.maxHp;
+      }
+      const dps = lost / 40;
+      step(`boss tuning: ${kind} stationary damage ${dps.toFixed(2)}/s is within [${lo}, ${hi}]`, dps >= lo && dps <= hi, `${dps.toFixed(2)}`);
+    }
+  }
 }
 
 // 7. server smoke test (needs node:sqlite, Node >= 22.5)

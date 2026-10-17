@@ -11,15 +11,15 @@ import { persist } from "../save";
 import { sfx, TRACKS, type TrackId } from "../audio";
 import { settings } from "../settings";
 import { Sim, dirAngle } from "../sim/core";
-import { NPCS, ITEMS, itemName } from "../sim/data";
+import { ALLIES, NPCS, ITEMS, itemName } from "../sim/data";
 import type { WorldData } from "../sim/maps";
 import { NO_INPUT, type Dir, type Ev, type Input, type SaveV2 } from "../sim/types";
 import { doorTexture, SPR } from "../sprites";
 import { CH, CW, TS, T } from "../tiles";
 import { label, windowImage, zone } from "../ui";
 
-const FOOT_ORIGIN: Record<string, [number, number]> = { marshal: [0.5, 38 / 40], sluicejaw: [0.5, 50 / 56], rootknight: [0.5, 38 / 40], barkwarden: [0.5, 50 / 56], cloudmarshal: [0.5, 38 / 40], stormfinch: [0.5, 50 / 56] };
-const ITEM_ICON: Record<string, string> = { keeper_blade: "icon_blade", wicker_buckler: "icon_buckler", gale_disc: "icon_disc", cistern_map: "icon_map", cistern_compass: "icon_compass", big_key: "icon_bigkey", moss_map: "icon_map", moss_compass: "icon_compass", moss_key: "icon_bigkey", spire_map: "icon_map", spire_compass: "icon_compass", spire_key: "icon_bigkey", ember_bow: "icon_bow", brass_lantern: "icon_lantern", dune_gauntlet: "icon_gauntlet", spiral_boots: "icon_boots", archivist_folio: "icon_folio", small_key: "icon_key", tonic: "icon_tonic", heart_piece: "icon_shard", heart_container: "pk_heart", soup: "icon_tonic", mote: "icon_tonic", stew: "icon_tonic", elixir: "icon_tonic", parcel: "icon_folio", heron_feather: "icon_folio", waterskin: "icon_tonic" };
+const FOOT_ORIGIN: Record<string, [number, number]> = { marshal: [0.5, 38 / 40], sluicejaw: [0.5, 50 / 56], rootknight: [0.5, 38 / 40], barkwarden: [0.5, 50 / 56], cloudmarshal: [0.5, 38 / 40], stormfinch: [0.5, 50 / 56], vael: [0.5, 38 / 40] };
+const ITEM_ICON: Record<string, string> = { keeper_blade: "icon_blade", wicker_buckler: "icon_buckler", gale_disc: "icon_disc", cistern_map: "icon_map", cistern_compass: "icon_compass", big_key: "icon_bigkey", moss_map: "icon_map", moss_compass: "icon_compass", moss_key: "icon_bigkey", spire_map: "icon_map", spire_compass: "icon_compass", spire_key: "icon_bigkey", ember_bow: "icon_bow", brass_lantern: "icon_lantern", dune_gauntlet: "icon_gauntlet", spiral_boots: "icon_boots", archivist_folio: "icon_folio", small_key: "icon_key", tonic: "icon_tonic", heart_piece: "icon_shard", heart_container: "pk_heart", soup: "icon_tonic", mote: "icon_tonic", stew: "icon_tonic", elixir: "icon_tonic", parcel: "icon_folio", heron_feather: "icon_folio", waterskin: "icon_tonic", old_medal: "icon_shard", glass_pearl: "icon_shard", bell_rope: "icon_folio", kit_lamp: "icon_lantern" };
 const COLOR_NUM = (s: string | undefined): number => (s ? parseInt(s.replace("#", ""), 16) : 0xffffff);
 
 interface Spr { img: Phaser.GameObjects.Image; tag: string }
@@ -145,6 +145,8 @@ export class GameScene extends Phaser.Scene {
 
     if (this.menu.open) {
       this.menu.handle(this.inp.ui());
+    } else if (sim.mode === "ending") {
+      this.updateEnding(dt, this.inp.ui().confirm);
     } else if (sim.mode === "dialog") {
       const ui = this.inp.ui();
       this.updateDialog(ui.confirm);
@@ -258,6 +260,7 @@ export class GameScene extends Phaser.Scene {
       case "spark": this.burst(e.x, e.y, COLOR_NUM(e.color), e.n ?? 4); break;
       case "dmgtext": this.floatText(e.x, e.y, e.text); break;
       case "levelup": this.levelUpFx(e.x, e.y, e.lvl, e.who); break;
+      case "ending": this.showEnding(); break;
       case "saved": break;
     }
   }
@@ -266,6 +269,39 @@ export class GameScene extends Phaser.Scene {
    * Level-up flourish: a rising light pillar, three ground rings, rising star sparkles, a brief screen glow and a floating "LEVEL UP!".
    * With "Reduce motion" it is only the still label and a soft glow; "Reduce flashing" lowers the glow further.
    */
+  private endUi: { box: Phaser.GameObjects.Container; wash: Phaser.GameObjects.Rectangle; t: number; h: number } | null = null;
+  private showEnding(): void {
+    if (this.endUi) return;
+    const lines = [
+      "EMBERVEIL", "", "The Veil is mended.", "Three lamps burn, and the Lantern-Crown is dark no more.", "",
+      "Ren, lamp-keeper of Emberfen", "Warden Isolde: the wardstones", "Kit and Dorn: companions", "", "WORLD OF AURELANE",
+      "Emberfen, Whispering Grove, Mirewick, Ashglass Dunes", "Greatwater, Kestrel Plateau, Emberspine Range, Crownwatch", "",
+      "DUNGEONS", "Cistern Under-Hall", "Mossgate Ruins", "Skyreach Spire", "Crownwatch Keep", "",
+      "BOSSES", "Sluicejaw  -  The Bark Warden  -  Stormfinch Mol  -  Vael Orsek", "",
+      "Music, sound, sprites and maps are generated in code.", "Built with Phaser 3, Vite and TypeScript.", "",
+      "Thank you for playing.", "", "(press confirm to continue exploring)",
+    ];
+    const wash = this.add.rectangle(view.ox, view.oy, view.w, view.h, 0x04040e, 0.92).setOrigin(0).setScrollFactor(0).setDepth(16000);
+    const box = this.add.container(0, 0).setScrollFactor(0).setDepth(16001);
+    lines.forEach((ln, i) => {
+      const big = i === 0 || ["WORLD OF AURELANE", "DUNGEONS", "BOSSES", "The Veil is mended.", "Thank you for playing."].includes(ln);
+      const t = label(this, view.ox + view.w / 2, view.oy + view.h + i * 13, ln, big ? "#ffe08a" : "#ffffff").setOrigin(0.5, 0).setScale(big ? 0.9 : 0.66);
+      box.add(t);
+    });
+    this.endUi = { box, wash, t: 0, h: lines.length * 13 + view.h };
+  }
+  private updateEnding(dt: number, confirm: boolean): void {
+    if (!this.endUi) { this.showEnding(); return; }
+    const u = this.endUi;
+    u.t += dt;
+    const speed = settings.reduceMotion ? 10 : 20;
+    u.box.y = -Math.min(u.t * speed, u.h - view.h * 0.55);
+    if ((confirm && u.t > 3) || u.t > u.h / speed + 20) {
+      u.box.destroy(); u.wash.destroy(); this.endUi = null;
+      this.sim.endEnding();
+    }
+  }
+
   private levelUpFx(x: number, y: number, lvl: number, who: string): void {
     const calm = settings.reduceMotion;
     const track = <G extends Phaser.GameObjects.GameObject>(o: G): G => { this.fxCount++; o.once(Phaser.GameObjects.Events.DESTROY, () => { this.fxCount--; }); return o; };
@@ -289,7 +325,7 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: wash, fillAlpha: { from: peak, to: 0 }, duration: calm ? 900 : 650, ease: "Quad.easeOut", onStart: () => wash.setFillStyle(0xffd870, peak), onComplete: () => wash.destroy() });
     // floating label
     const t = track(label(this, x, y - 30, "LEVEL UP!", "#fff0b0").setOrigin(0.5).setDepth(14600).setScale(calm ? 1 : 0.3));
-    const sub = track(label(this, x, y - 21, who === "ren" ? `Level ${lvl}` : `${who} reached level ${lvl}`, "#ffffff").setOrigin(0.5).setDepth(14600).setScale(0.62).setAlpha(0));
+    const sub = track(label(this, x, y - 21, who === "ren" ? `Level ${lvl}` : `${ALLIES[who]?.name ?? who} reached level ${lvl}`, "#ffffff").setOrigin(0.5).setDepth(14600).setScale(0.62).setAlpha(0));
     t.setStroke("#8a4a10", 3);
     if (calm) {
       t.setAlpha(0); sub.setAlpha(0);
@@ -514,9 +550,17 @@ export class GameScene extends Phaser.Scene {
       else im.setAlpha(e.kind === "sluicejaw" || e.kind === "stormfinch" ? Math.max(0.12, e.vis) : e.stun > 0 && Math.floor(time * 16) % 2 ? 0.7 : 1);
       if (e.flash > 0) im.setTintFill(0xffffff); else if (e.stun > 0 || e.st === "stunned") im.setTint(0xa8d8ff); else im.clearTint();
       void big;
-      if (e.alive) this.lab(`l${k}`, e.def.name, e.x, e.y - (e.kind === "sluicejaw" || e.kind === "barkwarden" || e.kind === "stormfinch" ? 52 : e.kind === "marshal" || e.kind === "rootknight" || e.kind === "cloudmarshal" ? 40 : 18) - lift, e.def.boss ? RED : "#ffb0a0", nearP(e.x, e.y) || !!e.def.boss, liveLabels);
+      if (e.alive) this.lab(`l${k}`, e.def.name, e.x, e.y - (e.kind === "sluicejaw" || e.kind === "barkwarden" || e.kind === "stormfinch" ? 52 : e.kind === "marshal" || e.kind === "rootknight" || e.kind === "cloudmarshal" || e.kind === "vael" ? 40 : 18) - lift, e.def.boss ? RED : "#ffb0a0", nearP(e.x, e.y) || !!e.def.boss, liveLabels);
     }
 
+    for (const id of sim.allyIds()) {
+      const rt = sim.allyRt[id];
+      if (!rt) continue;
+      live.add(`ally_${id}`);
+      const im = this.spr(`ally_${id}`, `npc_${id}_0`, "npc");
+      im.setPosition(rt.x, rt.y + 6 + (rt.moving ? Math.abs(Math.sin(time * 9)) * -1.2 : Math.sin(time * 2) * 0.25)).setDepth(rt.y + 6);
+      this.lab(`lally_${id}`, `${ALLIES[id].name} Lv ${sim.allyLevelOf(id)}`, rt.x, rt.y - 17, AQUA, false, liveLabels);
+    }
     this.drawPlayer(time);
     this.drawProjs(time);
     this.drawPrompt(v);

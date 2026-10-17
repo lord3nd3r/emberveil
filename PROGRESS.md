@@ -2,7 +2,7 @@
 
 Stages 0-1 (vertical slice) are complete: see the bottom of this file. Stage 2 is **nearly complete** (see the checklist).
 
-## Stage 3 checklist: about 40% of the stated Stage 3 scope
+## Stage 3 checklist: about 60% of the stated Stage 3 scope (scope cut by the user: Spire, music and the Keep/ending are the focus; items 3, 5, 6 below were partly built before the cut)
 
 Weights: Skyreach Spire 25, music 15, allies 15, Crownwatch Keep + ending/credits 25, bot route + boss tuning 10, side quests/NPCs + audit 10.
 
@@ -15,10 +15,14 @@ Weights: Skyreach Spire 25, music 15, allies 15, Crownwatch Keep + ending/credit
 - [x] 12 new procedural tracks: castle, desert, lake, mountain, plateau, moss, spire, bosswarden, bossstorm, keep, finalboss, credits (keep/finalboss/credits are ready for milestone 4)
 - [x] Per-chunk music for castle/desert/lake/mountain/plateau, Mossgate and Spire rooms, boss variants via `trackFor()`
 - [x] selfcheck: every chunk/room track exists with a spec
-### 3. Allies that level up: [ ] (0/15)
-### 4. Crownwatch Keep, phased final boss, ending, credits: [ ] (0/25)
-### 5. Bot route (Mossgate, side quests, Skyreach) and boss tuning: [ ] (0/10)
-### 6. Side quests to about 10, more NPCs, audit extension: [ ] (0/10)
+### 3. Allies that level up: [x] (15/15) Kit (bolts) and Dorn (blade), recruited by quests, level 1-5, emitLevelUp, saved in save.allies and whitelisted by the server; selfcheck covers it
+### 4. Crownwatch Keep, phased final boss, ending, credits: [x] (25/25) (full check passed on the box)
+- [x] Step 1: keep_a1 Keep Gate, keep_a2 Hall of Seals, keep_a3 Lantern-Crown Hall (sealed fight room); `w_keep` opens only with cisternCleared + wardenDead + stormfinchDead (comma-separated `needFlag`, also understood by the audit); Isolde starts quest "The Crown Unlit"
+- [x] Step 2: Vael Orsek, 70 hp, three phases (slash/volley, blink + rings plus summoned wisps, bursts); `keep` room music, `finalboss` track while he is active
+- [x] Step 3: defeat -> flag vaelDead, quest crown complete, `credits` track, scrolling credits overlay, confirm returns to free play (`endEnding`)
+- [x] Step 4: audit (keep rooms, flags) and selfcheck (door barred/open, phases, flag, quest, ending, dismiss, boss damage bounds)
+### 5. Bot route (Mossgate, side quests, Skyreach) and boss tuning: [~] (5/10; optional, `BOT_STAGE3=1` / `BOT_FAST=spire|keep`, not in npm run check) bot walks Kit quest, Mossgate (Warden) and the Spire in BOT_FAST mode and the full route reaches the Spire; walking to the Keep gate from the Spire is not yet solved; boss damage bounds are in selfcheck
+### 6. Side quests to about 10, more NPCs, audit extension: [x] (10/10) 10 side quests, 17 NPCs; audit cross-checks quests/NPCs/allies/quest items/flags
 
 ## Stage 2 checklist: about 92% of the stated Stage 2 scope
 

@@ -171,6 +171,17 @@ function enemy(c: Ctx, kind: string, f: number): void {
       c.strokeStyle = "#8a5a2a"; c.lineWidth = 1.6; c.beginPath(); c.arc(33, 22, 8, -1.3, 1.3); c.stroke();
       return;
     }
+    case "vael": {
+      E(c, 20, 38, 10, 3.6, "rgba(0,0,0,0.3)");
+      R(c, 14, 31, 5, 7, "#1a1424"); R(c, 22, 31, 5, 7, "#1a1424");
+      RR(c, 10, 16, 20, 19, 3, "#3a2a5a"); R(c, 10, 29, 20, 2, "#1a1030"); R(c, 10, 16, 20, 1.6, "#9a78d8"); R(c, 18, 18, 4, 12, "#d8483a");
+      c.fillStyle = "#2a1a44"; c.beginPath(); c.moveTo(10, 18); c.lineTo(2, 36 + f); c.lineTo(12, 33); c.fill(); c.beginPath(); c.moveTo(30, 18); c.lineTo(38, 36 + f); c.lineTo(28, 33); c.fill();
+      RR(c, 6, 18, 5, 10, 1.6, "#4a3a6a"); RR(c, 29, 18, 5, 10, 1.6, "#4a3a6a");
+      E(c, 20, 12.6, 7.2, 7.4, "#5a4a7a"); R(c, 13.6, 11.4, 12.8, 3, "#08040e"); R(c, 16, 11.8, 2, 2, "#ff5a8a"); R(c, 22, 11.8, 2, 2, "#ff5a8a");
+      c.fillStyle = "#f0c850"; c.beginPath(); c.moveTo(12, 7); c.lineTo(13, 0 + f); c.lineTo(16.5, 5); c.lineTo(20, -1 + f); c.lineTo(23.5, 5); c.lineTo(27, 0 + f); c.lineTo(28, 7); c.fill();
+      R(c, 18.6, 3, 2.8, 2.8, "#ff5a8a");
+      return;
+    }
     case "stormfinch": {
       const fl = f ? 4 : 0;
       E(c, 28, 50, 14, 4, "rgba(0,0,0,0.22)");
@@ -306,6 +317,7 @@ export function buildSprites(scene: Phaser.Scene): void {
   for (let f = 0; f < 2; f++) make(scene, `en_sluicejaw_${f}`, 56, 56, (c) => enemy(c, "sluicejaw", f));
   for (let f = 0; f < 2; f++) make(scene, `en_rootknight_${f}`, 40, 40, (c) => enemy(c, "rootknight", f));
   for (let f = 0; f < 2; f++) make(scene, `en_cloudmarshal_${f}`, 40, 40, (c) => enemy(c, "cloudmarshal", f));
+  for (let f = 0; f < 2; f++) make(scene, `en_vael_${f}`, 40, 40, (c) => enemy(c, "vael", f));
   for (let f = 0; f < 2; f++) make(scene, `en_stormfinch_${f}`, 56, 56, (c) => enemy(c, "stormfinch", f));
   for (let f = 0; f < 2; f++) make(scene, `en_barkwarden_${f}`, 56, 56, (c) => enemy(c, "barkwarden", f));
   make(scene, "chest_0", SPR, SPR, (c) => chest(c, false, false));

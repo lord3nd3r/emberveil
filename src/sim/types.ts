@@ -29,6 +29,7 @@ export type Ev =
   | { t: "spark"; x: number; y: number; color?: string; n?: number }
   | { t: "dmgtext"; x: number; y: number; text: string }
   | { t: "levelup"; x: number; y: number; lvl: number; who: string }
+  | { t: "ending" }
   | { t: "saved" };
 
 /** Legacy save (v1). Still read and migrated; never written. */
@@ -61,4 +62,5 @@ export interface SaveV1 {
 export interface SaveV2 extends Omit<SaveV1, "v"> {
   v: 2;
   xp: number; // total experience, 0..XP_CAP
+  allies?: Record<string, number>; // recruited companions: id -> ally XP
 }

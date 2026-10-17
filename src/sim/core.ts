@@ -3,7 +3,7 @@
  * bot drive it directly. Units: pixels (16 per tile). Positions are foot-centre points.
  */
 import { CH, CW, FOG_CH, FOG_CW, FOG_H, FOG_HEX, FOG_W, TS, isLedge, isPit, isSlow, isSolid, T } from "../tiles";
-import { dungeonOf, ENEMIES, SHOPS, EQUIPPABLE, GLINT_ITEM, ITEMS, SHOP, UNIQUE_ITEMS, XP_CAP, XP_QUEST, LEVEL_XP, MAX_LEVEL, atkMul, defReduce, hpBonusHalves, itemName, levelOf, xpGain, type EnemyDef } from "./data";
+import { ALLIES, ALLY_XP_CAP, allyDmg, allyLevel, dungeonOf, ENEMIES, SHOPS, EQUIPPABLE, GLINT_ITEM, ITEMS, SHOP, UNIQUE_ITEMS, XP_CAP, XP_QUEST, LEVEL_XP, MAX_LEVEL, atkMul, defReduce, hpBonusHalves, itemName, levelOf, xpGain, type EnemyDef } from "./data";
 import { migrateSave } from "./migrate";
 import { stepEnemy } from "./enemies";
 import type { RawObj, Room, WorldData } from "./maps";
@@ -63,7 +63,7 @@ export interface Dialog { who: string; lines: string[]; i: number; after?: () =>
 
 export interface Area { kind: "world" | "room"; id: string; room?: Room; w: number; h: number }
 
-export type Mode = "play" | "dialog" | "shop" | "transition" | "dead";
+export type Mode = "play" | "dialog" | "shop" | "transition" | "dead" | "ending";
 
 interface Warp { to: string; tx: number; ty: number; dir: Dir; t: number; ready: boolean; done: boolean; swapped: boolean }
 
@@ -109,6 +109,7 @@ export class Sim {
   constructor(data: WorldData, save?: SaveV2) {
     this.data = data;
     this.save = (save && migrateSave(save) ? structuredClone(migrateSave(save)!) : Sim.newSave());
+    this.save.allies ??= {};
     this.hp = Math.min(this.save.hp, this.maxHp);
     this.decodeFog();
   }
@@ -116,7 +117,7 @@ export class Sim {
   static newSave(): SaveV2 {
     return {
       v: 2, xp: 0, area: "ren_house", x: 8.5, y: 6.5, facing: "down", hp: 6, hearts: 3, pieces: 0, magic: MAX_MAGIC, glints: 0,
-      items: [], equipped: "", inv: {}, keys: 0, flags: [], quests: { cistern: 1 }, chests: [], doors: [], cleared: [], visited: ["ren_house"], fog: "0".repeat(FOG_HEX), playTime: 0,
+      items: [], equipped: "", inv: {}, keys: 0, flags: [], quests: { cistern: 1 }, allies: {}, chests: [], doors: [], cleared: [], visited: ["ren_house"], fog: "0".repeat(FOG_HEX), playTime: 0,
     };
   }
 
@@ -155,6 +156,71 @@ export class Sim {
     this.sfx("levelup");
     this.emit({ t: "levelup", x, y, lvl, who });
   }
+  /* ---------------------------------------------------------------- allies */
+  allyRt: Record<string, { x: number; y: number; cd: number; face: Dir; moving: boolean }> = {};
+  endingT = 0;
+  allyIds(): string[] { return Object.keys(this.save.allies ?? {}).filter((id) => ALLIES[id]); }
+  allyLevelOf(id: string): number { return allyLevel(this.save.allies?.[id] ?? 0); }
+  recruitAlly(id: string): void {
+    this.save.allies ??= {};
+    if (!ALLIES[id] || id in this.save.allies) return;
+    this.save.allies[id] = 0;
+    this.sfx("quest"); this.toast(`${ALLIES[id].name} joins you!`);
+    this.commit();
+  }
+  addAllyXp(id: string, n: number): void {
+    const a = this.save.allies;
+    if (!a || !(id in a) || n <= 0) return;
+    const before = allyLevel(a[id]);
+    a[id] = Math.min(ALLY_XP_CAP, a[id] + n);
+    const after = allyLevel(a[id]);
+    if (after > before) {
+      const rt = this.allyRt[id];
+      this.toast(`${ALLIES[id].name} reached level ${after}!`);
+      this.emitLevelUp(id, rt?.x ?? this.p.x, rt?.y ?? this.p.y, after);
+    }
+  }
+  private updateAllies(dt: number): void {
+    const ids = this.allyIds();
+    ids.forEach((id, i) => {
+      const def = ALLIES[id];
+      let rt = this.allyRt[id];
+      if (!rt) rt = this.allyRt[id] = { x: this.p.x - 10 * (i + 1), y: this.p.y + 2, cd: 1, face: "down", moving: false };
+      const tx = this.p.x + (i % 2 === 0 ? -14 : 14), ty = this.p.y + 4;
+      const dx = tx - rt.x, dy = ty - rt.y, d = Math.hypot(dx, dy);
+      rt.moving = false;
+      if (d > 140) { rt.x = this.p.x; rt.y = this.p.y; }
+      else if (d > 9) {
+        const sp = Math.min(d * 5, 78) * dt, nx = rt.x + (dx / d) * sp, ny = rt.y + (dy / d) * sp;
+        if (this.standable(Math.floor(nx / TS), Math.floor((ny - 3) / TS))) { rt.x = nx; rt.y = ny; rt.moving = true; }
+        else if (this.standable(Math.floor(nx / TS), Math.floor((rt.y - 3) / TS))) { rt.x = nx; rt.moving = true; }
+        else if (this.standable(Math.floor(rt.x / TS), Math.floor((ny - 3) / TS))) { rt.y = ny; rt.moving = true; }
+        else if (d > 48) { rt.x = this.p.x; rt.y = this.p.y; }
+        if (rt.moving) rt.face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
+      }
+      rt.cd -= dt;
+      if (rt.cd > 0) return;
+      const lvl = allyLevel(this.save.allies![id]);
+      let best: Enemy | null = null, bd = def.range;
+      for (const e of this.enemies) {
+        if (!e.alive || e.dying > 0 || e.st === "submerged") continue;
+        const dd = Math.hypot(e.x - rt.x, e.y - 5 - rt.y);
+        if (dd < bd && Math.hypot(e.x - this.p.x, e.y - this.p.y) < 170) { bd = dd; best = e; }
+      }
+      if (!best) { rt.cd = 0.25; return; }
+      rt.cd = Math.max(0.7, def.cd - 0.12 * (lvl - 1));
+      const ang = Math.atan2(best.y - 5 - rt.y, best.x - rt.x);
+      const dmg = allyDmg(def, lvl) * (best.def.boss ? 0.6 : 1) / atkMul(this.level);
+      this.allyHit = id;
+      this.hitEnemy(best, dmg, ang, { kb: 40 });
+      this.allyHit = "";
+      this.emit({ t: "spark", x: rt.x, y: rt.y - 8, color: def.color, n: 5 });
+      this.emit({ t: "spark", x: (rt.x + best.x) / 2, y: (rt.y + best.y) / 2 - 8, color: def.color, n: 3 });
+    });
+  }
+  allyHit = "";
+  /** Called by the scene when the credits are dismissed. */
+  endEnding(): void { if (this.mode === "ending") { this.mode = "play"; this.emit({ t: "music", track: this.trackFor() }); this.toast("The Veil is mended. Explore Aurelane freely."); this.commit(); } }
   hasFlag(f: string): boolean { return this.save.flags.includes(f); }
   setFlag(f: string): void { if (!this.save.flags.includes(f)) this.save.flags.push(f); }
   hasItem(i: string): boolean { return this.save.items.includes(i); }
@@ -228,7 +294,7 @@ export class Sim {
     const r = th.raw.reveal as string | undefined;
     return !r || this.hasFlag(r);
   }
-  npcHidden(id: string): boolean { return id === "pip" && this.hasFlag("henFound"); }
+  npcHidden(id: string): boolean { return (id === "pip" && this.hasFlag("henFound")) || (!!ALLIES[id] && id in (this.save.allies ?? {})); }
   doorOpen(th: Thing): boolean {
     if (this.sealed) return false;
     const kind = th.raw.kind as string;
@@ -254,6 +320,7 @@ export class Sim {
     const key = id === "world" ? "" : id;
     if (key && !this.save.visited.includes(key)) this.save.visited.push(key);
     const name = id === "world" ? this.chunkName(this.p.x, this.p.y) : this.area.room!.name;
+    this.allyRt = {};
     this.emit({ t: "area", id, name, kind: this.area.kind });
     this.emit({ t: "music", track: this.trackFor() });
     this.save.area = id;
@@ -272,6 +339,7 @@ export class Sim {
   trackFor(): string | null {
     if (this.bossActive === "barkwarden") return "bosswarden";
     if (this.bossActive === "stormfinch") return "bossstorm";
+    if (this.bossActive === "vael") return "finalboss";
     if (this.bossActive === "sluicejaw") return "boss";
     if (this.bossActive === "marshal" || this.bossActive === "rootknight" || this.bossActive === "cloudmarshal") return "miniboss";
     if (this.area.kind === "room") return this.area.room!.music;
@@ -553,6 +621,7 @@ export class Sim {
     e.dying = 0.45; e.alive = false; e.st = "dying";
     this.sfx("kill");
     this.addXp(xpGain(e.def, this.level));
+    if (this.save.allies) for (const id of this.allyIds()) { const rt = this.allyRt[id]; if (rt && Math.hypot(rt.x - e.x, rt.y - e.y) < 230) this.addAllyXp(id, Math.max(1, Math.round(xpGain(e.def, this.level) * (e.def.boss ? 0.25 : 0.6)) + (this.allyHit === id ? 1 : 0))); }
     this.emit({ t: "spark", x: e.x, y: e.y - 6, color: "#ffd88a", n: 10 });
     if (e.def.boss) {
       if (e.kind === "marshal") { this.setFlag("marshalDead"); this.bossActive = ""; this.emit({ t: "music", track: this.trackFor() }); this.toast("The Gaol-Marshal falls. A chest rises from the floor!"); this.sfx("fanfare"); }
@@ -571,6 +640,11 @@ export class Sim {
         this.pickups.push({ uid: this.uid++, kind: "heart", x: e.x, y: e.y + 10, val: 99, ttl: 1e9, t: 0, z: 0 });
         this.heartContainerAt = [e.x, e.y + 10];
         this.toast("The Bark Warden is defeated!");
+      }
+      if (e.kind === "vael") {
+        this.setFlag("vaelDead"); this.bossActive = ""; this.setQuest("crown", 3);
+        this.sfx("fanfare"); this.emit({ t: "flash" }); this.emit({ t: "music", track: "victory" });
+        this.toast("Vael Orsek is defeated!"); this.endingT = 3.2;
       }
       if (e.kind === "sluicejaw") {
         this.setFlag("bossDead"); this.bossActive = ""; this.setQuest("cistern", 3);
@@ -616,6 +690,8 @@ export class Sim {
     }
     if (this.mode === "dialog") { if (inp.interact || inp.attack) this.dialogNext(); return; }
     if (this.mode === "shop") return;
+    if (this.mode === "ending") return;
+    if (this.endingT > 0) { this.endingT -= dt; if (this.endingT <= 0) { this.mode = "ending"; this.emit({ t: "music", track: "credits" }); this.emit({ t: "ending" }); return; } }
 
     const p = this.p;
     // magic regen
@@ -627,6 +703,7 @@ export class Sim {
     this.updatePlayer(dt, inp);
     this.updateProjs(dt);
     for (const e of this.enemies) stepEnemy(this, e, dt);
+    this.updateAllies(dt);
     this.enemies = this.enemies.filter((e) => e.alive || e.dying > 0);
     for (const e of this.enemies) if (!e.alive) e.dying -= dt;
     this.enemies = this.enemies.filter((e) => e.alive || e.dying > 0);
@@ -1043,7 +1120,7 @@ export class Sim {
         const to = th.raw.to as string;
         if (!to) { if (this.lockMsgT <= 0) { this.toast((th.raw.msg as string) ?? "Locked."); this.lockMsgT = 2; this.sfx("deny"); } p.y += 4; continue; }
         const need = th.raw.needFlag as string | undefined;
-        if (need && !this.hasFlag(need)) { if (this.lockMsgT <= 0) { this.startDialog("", [th.raw.msg as string]); this.lockMsgT = 2; } p.y += 5; continue; }
+        if (need && !need.split(",").every((f) => this.hasFlag(f))) { if (this.lockMsgT <= 0) { this.startDialog("", [th.raw.msg as string]); this.lockMsgT = 2; } p.y += 5; continue; }
         this.beginWarp(to, th.raw.tx as number, th.raw.ty as number, ((th.raw.dir as Dir) ?? "down"));
         return;
       }
@@ -1052,7 +1129,7 @@ export class Sim {
       const open = this.doorOpen(th);
       if (open) { if (inside) { this.beginWarp(th.raw.to as string, th.raw.tx as number, th.raw.ty as number, this.doorDir(th)); return; } continue; }
       // touching a closed door
-      const near = fx > th.x - th.w / 2 - 3 && fx < th.x + th.w / 2 + 3 && p.y > th.y - th.h / 2 - 3 && p.y - PBOX.h < th.y + th.h / 2 + 3;
+      const near = fx > th.x - th.w / 2 - 3 - PBOX.hw && fx < th.x + th.w / 2 + 3 + PBOX.hw && p.y > th.y - th.h / 2 - 3 && p.y - PBOX.h < th.y + th.h / 2 + 3;
       if (!near || this.sealed) continue;
       if (kind === "small") {
         if (this.save.keys > 0) { this.save.keys -= 1; this.save.doors.push(th.id); this.sfx("unlock"); this.toast("Unlocked with a small key."); this.commit(); }

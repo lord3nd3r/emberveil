@@ -6,7 +6,7 @@
  *   npm run audit
  */
 import { Sim, type Thing } from "../src/sim/core";
-import { ITEMS } from "../src/sim/data";
+import { ALLIES, FLAGS, ITEMS, NPCS, QUESTS, QUEST_DEFS } from "../src/sim/data";
 import { nodeWorld } from "../src/sim/node";
 import { TS, isLedge, isPit, isSolid } from "../src/tiles";
 
@@ -67,7 +67,15 @@ export async function runAudit(): Promise<AuditResult> {
   const QUEST_GIVES: Record<string, { needs: string[]; item: string; flag: string }> = { pell: { needs: ["archivist_folio"], item: "spiral_boots", flag: "gotBoots" } };
   const doorOpenIn = (st: State, th: Thing) => (th.raw.kind as string) === "open" || st.doors.has(th.id);
 
+  let lastBuild: { k: string; r: ReturnType<typeof buildRaw> } | null = null;
   function build(st: State) {
+    const k = [...st.doors].sort().join(",") + "|" + [...st.flags].sort().join(",") + "|" + st.items.has("spiral_boots");
+    if (lastBuild && lastBuild.k === k) return lastBuild.r;
+    const r = buildRaw(st);
+    lastBuild = { k, r };
+    return r;
+  }
+  function buildRaw(st: State) {
     // apply door state to every sim
     for (const a of areas.values()) { a.sim.save.doors = [...st.doors]; a.sim.save.flags = [...st.flags]; a.sim.sealed = false; for (const th of a.sim.things) if (th.t === "slab" || th.t === "rubble" || th.t === "thicket") th.cut = st.doors.has(th.id); }
     const boots = st.items.has("spiral_boots");
@@ -105,7 +113,7 @@ export async function runAudit(): Promise<AuditResult> {
         if (!to) continue;
         if (th.t === "door" && !doorOpenIn(st, th)) continue;
         const need = th.raw.needFlag as string | undefined;
-        if (need && !st.flags.has(need)) continue;
+        if (need && !need.split(",").every((f) => st.flags.has(f))) continue;
         const reveal = th.raw.reveal as string | undefined;
         if (reveal && !st.flags.has(reveal)) continue;
         const [dcx, dcy] = cellOf(th.raw.tx as number, th.raw.ty as number);
@@ -283,6 +291,20 @@ export async function runAudit(): Promise<AuditResult> {
     let any = false;
     for (const n of everReach) if (n.startsWith(a.id + "|")) { any = true; break; }
     if (!any) errors.push(`area ${a.id} is never entered`);
+  }
+  // content cross-checks: quests, NPCs, allies, quest items and warp flags
+  {
+    const placed = new Set(npcs.map((n) => n.th.id));
+    for (const id of Object.keys(NPCS)) if (!placed.has(id)) errors.push(`npc ${id} is defined but never placed in the world`);
+    for (const q of QUESTS) if (!QUEST_DEFS.some((d) => d.id === q)) errors.push(`quest ${q} has no quest definition`);
+    for (const d of QUEST_DEFS) if (!QUESTS.includes(d.id)) errors.push(`quest definition ${d.id} is not in the save whitelist`);
+    for (const a of Object.keys(ALLIES)) if (!NPCS[a]) errors.push(`ally ${a} has no NPC to recruit it`);
+    const got = final?.st.items ?? new Set<string>();
+    for (const it of Object.values(ITEMS)) if (it.kind === "quest" && it.id !== "parcel" && !got.has(it.id)) errors.push(`quest item ${it.id} is never obtainable`);
+    for (const a of areas.values()) for (const th of a.sim.things) for (const k of ["needFlag", "reveal"]) { const v = th.raw[k] as string | undefined; if (v) for (const f of v.split(",")) if (!FLAGS.includes(f)) errors.push(`${th.id} in ${a.id} uses unknown flag ${f}`); }
+    stats.sideQuests = QUEST_DEFS.filter((d) => !d.main).length; stats.mainQuests = QUEST_DEFS.filter((d) => d.main).length;
+    if (stats.sideQuests < 10) errors.push(`only ${stats.sideQuests} side quests (want 10)`);
+    lines.push(`audit: ${stats.mainQuests} main + ${stats.sideQuests} side quests, ${Object.keys(NPCS).length} npcs (${Object.keys(ALLIES).length} recruitable allies)`);
   }
   stats.chests = chests.length; stats.npcs = npcs.length; stats.signs = signs.length; stats.doors = doorThings.length; stats.crystals = crystals.length; stats.gates = slabs.length + rubble.length + thickets.length; stats.cells = everReach.size;
   lines.push(`audit: ${areas.size} areas, ${warps} warps, ${chests.length} chests, ${doorThings.length} door sides, ${npcs.length} npcs, ${signs.length} signs, ${bosses.length} bosses`);
