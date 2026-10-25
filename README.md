@@ -1,5 +1,7 @@
 # Emberveil
 
+[![Donate - PayPal](https://img.shields.io/badge/Donate-PayPal-0070ba?style=for-the-badge&logo=paypal&logoColor=white)](https://3nd3r.net/paypal) [![Donate - BTC](https://img.shields.io/badge/Donate-BTC-f7931a?style=for-the-badge&logo=bitcoin&logoColor=white)](https://3nd3r.net/btc)
+
 **Live demo:** [https://emberveil.3nd3r.net](https://emberveil.3nd3r.net)
 
 ![Emberveil: the starting village](screenshots/03-village.png)
